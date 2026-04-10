@@ -138,6 +138,28 @@
       background: var(--error-bg);
     }
 
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-logout:hover {
+      color: var(--error-text);
+      border-color: var(--error-border);
+      background: var(--error-bg);
+    }
+
     /* Chat area */
     .chat-area {
       flex: 1;
@@ -584,12 +606,20 @@
       <h1>Ragnarok Classic GGT</h1>
       <span class="header-badge">AI</span>
     </div>
-    <button class="btn-clear" id="btn-clear" title="Clear conversation">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-      </svg>
-      ล้างประวัติ
-    </button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="btn-clear" id="btn-clear" title="Clear conversation">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+        ล้างประวัติ
+      </button>
+      <button class="btn-logout" id="btn-logout" title="Logout">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        ออกจากระบบ
+      </button>
+    </div>
   </header>
 
   <!-- Chat -->
@@ -622,11 +652,19 @@
 </div>
 
 <script>
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  ;(function () {
+    if (!localStorage.getItem('ro-auth-token')) {
+      window.location.replace('/login.html')
+    }
+  })()
+
   // ── Constants ─────────────────────────────────────────────────────────────
-  var STORAGE_KEY = 'ro-chat-history'
-  var COOKIE_KEY  = 'ro-chat-session'
-  var API_URL     = '/chat'
-  var MAX_HISTORY = 40
+  var STORAGE_KEY    = 'ro-chat-history'
+  var COOKIE_KEY     = 'ro-chat-session'
+  var API_URL        = '/chat'
+  var MAX_HISTORY    = 40
+  var AUTH_TOKEN_KEY = 'ro-auth-token'
 
   var GREETING = {
     role: 'assistant',
@@ -645,6 +683,7 @@
   var lightbox  = document.getElementById('lightbox')
   var lightboxImg = document.getElementById('lightbox-img')
   var lightboxClose = document.getElementById('lightbox-close')
+  var btnLogout     = document.getElementById('btn-logout')
 
   // ── Session cookie ────────────────────────────────────────────────────────
   function getSessionId () {
@@ -893,10 +932,17 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Session-Id': sessionId
+          'X-Session-Id': sessionId,
+          'Authorization': 'Bearer ' + localStorage.getItem(AUTH_TOKEN_KEY)
         },
         body: JSON.stringify({ query: query, history: apiHistory })
       })
+
+      if (res.status === 401) {
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        window.location.replace('/login.html')
+        return
+      }
 
       if (!res.ok) {
         throw new Error('Server error ' + res.status)
@@ -943,6 +989,17 @@
     if (!confirm('ล้างประวัติการสนทนาทั้งหมดใช่ไหม?')) return
     localStorage.removeItem(STORAGE_KEY)
     location.reload()
+  })
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  btnLogout.addEventListener('click', function () {
+    fetch('/logout', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem(AUTH_TOKEN_KEY) }
+    }).catch(function () {}).finally(function () {
+      localStorage.removeItem(AUTH_TOKEN_KEY)
+      window.location.replace('/login.html')
+    })
   })
 
   // ── Init ──────────────────────────────────────────────────────────────────
