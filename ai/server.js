@@ -65,6 +65,12 @@ app.post('/logout', requireAuth, function (req, res) {
 const chatbot = createChatbot()
 const vectorStore = createVectorStore()
 
+vectorStore.ensureCollection().then(function () {
+  logger.info('Qdrant collection ready')
+}).catch(function (err) {
+  logger.warn('Could not ensure Qdrant collection on startup: ' + err.message)
+})
+
 app.post('/chat', requireAuth, async function (req, res, next) {
   try {
     const query = get(req, 'body.query', '')
