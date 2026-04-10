@@ -1,0 +1,26 @@
+{
+  "name": "crawler-webboard",
+  "version": "1.0.0",
+  "description": "IPS forum web crawler for ro-prt.in.th/forum/ with AI chatbot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "ingest": "node ai/ingest.js",
+    "chat": "node ai/server.js"
+  },
+  "dependencies": {
+    "@qdrant/js-client-rest": "^1.9.0",
+    "axios": "^1.7.0",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "fs-extra": "^11.2.0",
+    "lodash": "^4.17.21",
+    "openai": "^4.47.0",
+    "p-queue": "^6.6.2",
+    "puppeteer": "^24.40.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "winston": "^3.13.0"
+  }
+}

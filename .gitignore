@@ -1,0 +1,7 @@
+node_modules/
+output/
+logs/
+qdrant_storage/
+.env
+*.log
+checkpoint.json
