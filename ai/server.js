@@ -2,6 +2,7 @@ require('dotenv').config()
 
 const express = require('express')
 const path = require('path')
+const crypto = require('crypto')
 const { get } = require('lodash')
 const { createChatbot } = require('./chatbot')
 const { createVectorStore } = require('./vectorStore')
@@ -9,29 +10,62 @@ const aiConfig = require('./config')
 const logger = require('../logger')
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3200
+
+let sessionToken = null
 
 app.use(express.json())
 
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Content-Type')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   next()
 })
 
 app.options('*', function (req, res) {
   res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Content-Type')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
   res.sendStatus(200)
 })
 
 app.use(express.static(path.join(__dirname, 'public')))
 
+function requireAuth (req, res, next) {
+  const authHeader = get(req, 'headers.authorization', '')
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!sessionToken || token !== sessionToken) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  next()
+}
+
+app.post('/login', function (req, res) {
+  const username = get(req, 'body.username', '')
+  const password = get(req, 'body.password', '')
+
+  const expectedUsername = process.env.AUTH_USERNAME
+  const expectedPassword = process.env.AUTH_PASSWORD
+
+  if (username !== expectedUsername || password !== expectedPassword) {
+    return res.status(401).json({ error: 'Invalid credentials' })
+  }
+
+  sessionToken = crypto.randomBytes(32).toString('hex')
+  return res.json({ token: sessionToken })
+})
+
+app.post('/logout', requireAuth, function (req, res) {
+  sessionToken = null
+  return res.json({ message: 'Logged out' })
+})
+
 const chatbot = createChatbot()
 const vectorStore = createVectorStore()
 
-app.post('/chat', async function (req, res, next) {
+app.post('/chat', requireAuth, async function (req, res, next) {
   try {
     const query = get(req, 'body.query', '')
     const history = get(req, 'body.history', [])
@@ -55,7 +89,7 @@ app.post('/chat', async function (req, res, next) {
   }
 })
 
-app.get('/health', function (req, res) {
+app.get('/health', requireAuth, function (req, res) {
   res.json({
     status: 'ok',
     collection: aiConfig.qdrant.collectionName,
@@ -63,7 +97,7 @@ app.get('/health', function (req, res) {
   })
 })
 
-app.get('/stats', async function (req, res, next) {
+app.get('/stats', requireAuth, async function (req, res, next) {
   try {
     const stats = await vectorStore.getStats()
     res.json(stats)
